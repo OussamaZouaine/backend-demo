@@ -27,6 +27,27 @@ pipeline {
             }
         }
 
+        // SonarQube URL + token: from Jenkins (SonarQube server "sonar-qube"). Scanner: Global Tool Configuration → SonarQube Scanner (name must match).
+        stage('SonarQube Analysis') {
+            steps {
+                script {
+                    def scannerHome = tool 'SonarQube Scanner'
+                    withSonarQubeEnv('sonar-qube') {
+                        sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=backend-demo -Dsonar.projectName=backend-demo -Dsonar.sources=src -Dsonar.sourceEncoding=UTF-8"
+                    }
+                }
+            }
+        }
+
+        // Quality Gate needs SonarQube to call Jenkins (webhook URL must be reachable from your machine, e.g. localhost if both run on the same host).
+        stage('Quality Gate') {
+            steps {
+                timeout(time: 5, unit: 'MINUTES') {
+                    waitForQualityGate abortPipeline: true
+                }
+            }
+        }
+
         stage('Build Application') {
             steps {
                 echo '🏗️ building the application...'
