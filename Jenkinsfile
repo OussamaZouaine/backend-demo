@@ -71,8 +71,8 @@ pipeline {
 
     post {
         always {
-            echo '🧹 cleaning up...'
-            sh 'docker system prune -a -f'
+            echo '🧹 cleaning up the workspace...'
+            deleteDir()
         }
         success {
             echo '✅ build successful...'
