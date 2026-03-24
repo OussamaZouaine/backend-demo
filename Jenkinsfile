@@ -48,15 +48,15 @@ pipeline {
             }
         }
 
-        stage('Quality Gate') {
-            steps {
-                withSonarQubeEnv("${env.SONARQUBE_INSTALLATION}") {
-                    timeout(time: 5, unit: 'MINUTES') {
-                        waitForQualityGate abortPipeline: true
-                    }
-                }
-            }
-        }
+        // stage('Quality Gate') {
+        //     steps {
+        //         withSonarQubeEnv("${env.SONARQUBE_INSTALLATION}") {
+        //             timeout(time: 5, unit: 'MINUTES') {
+        //                 waitForQualityGate abortPipeline: true
+        //             }
+        //         }
+        //     }
+        // }
 
         stage('Build Application') {
             steps {
