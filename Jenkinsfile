@@ -107,9 +107,23 @@ pipeline {
         }
         success {
             echo '✅ build successful...'
+            slackSend(
+                color: 'good',
+                message: "✅ *${env.JOB_NAME}* #${env.BUILD_NUMBER} succeeded — <${env.BUILD_URL}|Open build>"
+            )
         }
         failure {
             echo '❌ build failed...'
+            slackSend(
+                color: 'danger',
+                message: "❌ *${env.JOB_NAME}* #${env.BUILD_NUMBER} failed — <${env.BUILD_URL}|Open build>"
+            )
+        }
+        unstable {
+            slackSend(
+                color: 'warning',
+                message: "⚠️ *${env.JOB_NAME}* #${env.BUILD_NUMBER} unstable — <${env.BUILD_URL}|Open build>"
+            )
         }
     }
 }
