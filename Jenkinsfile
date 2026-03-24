@@ -73,7 +73,13 @@ pipeline {
                     def branch = (env.BRANCH_NAME ?: 'unknown').replaceAll('/', '-')
                     def commit = (env.GIT_COMMIT ?: 'nocommit').take(7)
                     env.IMAGE_TAG = "${branch}-${commit}"
-                    sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    // latest: only on default branch so registry :latest always matches the newest main/master build
+                    env.PUSH_LATEST = (env.BRANCH_NAME == 'main' || env.BRANCH_NAME == 'master') ? 'true' : 'false'
+                    if (env.PUSH_LATEST == 'true') {
+                        sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} -t ${env.IMAGE_NAME}:latest ."
+                    } else {
+                        sh "docker build -t ${env.IMAGE_NAME}:${env.IMAGE_TAG} ."
+                    }
                 }
             }
         }
@@ -94,6 +100,11 @@ pipeline {
                         def fullImage = "${env.DOCKER_USERNAME}/${env.IMAGE_NAME}:${env.IMAGE_TAG}"
                         sh "docker tag ${env.IMAGE_NAME}:${env.IMAGE_TAG} ${fullImage}"
                         sh "docker push ${fullImage}"
+                        if (env.PUSH_LATEST == 'true') {
+                            def fullLatest = "${env.DOCKER_USERNAME}/${env.IMAGE_NAME}:latest"
+                            sh "docker tag ${env.IMAGE_NAME}:latest ${fullLatest}"
+                            sh "docker push ${fullLatest}"
+                        }
                     }
                 }
             }
