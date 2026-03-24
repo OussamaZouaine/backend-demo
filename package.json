@@ -7,7 +7,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "bun run src/seed.ts"
+    "db:seed": "bun run src/seed.ts",
+    "sonar": "sonar-scanner"
   },
   "dependencies": {
     "@elysiajs/openapi": "^1.4.14",
@@ -17,7 +18,8 @@
   },
   "devDependencies": {
     "bun-types": "latest",
-    "drizzle-kit": "^0.31.10"
+    "drizzle-kit": "^0.31.10",
+    "sonarqube-scanner": "^4.3.5"
   },
   "module": "src/index.js"
 }

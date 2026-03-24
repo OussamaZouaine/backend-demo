@@ -28,29 +28,32 @@ pipeline {
             }
         }
 
-        // SonarQube URL + token: from Jenkins (SonarQube server "sonar-qube"). Scanner: Global Tool Configuration → SonarQube Scanner (name must match).
+        // Server URL + token: Jenkins → Configure System → SonarQube servers (name = SONARQUBE_INSTALLATION). Scanner: bun run sonar (sonar-project.properties).
+        // Quality Gate: enable webhook on that server; SonarQube must POST to Jenkins (Administration → Webhooks).
         stage('SonarQube analysis') {
             steps {
                 withSonarQubeEnv("${env.SONARQUBE_INSTALLATION}") {
-                    sh '''
+                    sh """
                         set -e
-                        if [ -z "${SONAR_HOST_URL:-}" ]; then
-                          echo "ERROR: SONAR_HOST_URL is empty. In Jenkins: Manage Jenkins → Configure System → SonarQube servers, set Server URL to an address this agent can reach (not localhost if SonarQube runs elsewhere or Jenkins is in Docker)."
+                        if [ -z "\${SONAR_HOST_URL:-}" ]; then
+                          echo "ERROR: SONAR_HOST_URL is empty. Add SonarQube server '${env.SONARQUBE_INSTALLATION}' under Configure System with a URL this agent can reach."
                           exit 1
                         fi
-                        bunx sonarqube-scanner \
-                          -Dsonar.host.url="$SONAR_HOST_URL" \
-                          -Dsonar.token="${SONAR_AUTH_TOKEN:-}"
-                    '''
+                        bun run sonar -- \\
+                          -Dsonar.host.url="\${SONAR_HOST_URL}" \\
+                          -Dsonar.token="\${SONAR_AUTH_TOKEN:-}" \\
+                          -Dsonar.links.ci=${env.BUILD_URL}
+                    """
                 }
             }
         }
 
-        // Quality Gate needs SonarQube to call Jenkins (webhook URL must be reachable from your machine, e.g. localhost if both run on the same host).
         stage('Quality Gate') {
             steps {
-                timeout(time: 5, unit: 'MINUTES') {
-                    waitForQualityGate abortPipeline: true
+                withSonarQubeEnv("${env.SONARQUBE_INSTALLATION}") {
+                    timeout(time: 5, unit: 'MINUTES') {
+                        waitForQualityGate abortPipeline: true
+                    }
                 }
             }
         }
