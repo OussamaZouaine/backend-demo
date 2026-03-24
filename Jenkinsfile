@@ -5,6 +5,7 @@ pipeline {
         DOCKER_BUILDKIT = 1
         PATH = "${env.HOME}/.bun/bin:${env.PATH}"
         IMAGE_NAME = 'backend-demo'
+        SONARQUBE_INSTALLATION = 'sonar-qube'
     }
 
     stages {
@@ -28,13 +29,19 @@ pipeline {
         }
 
         // SonarQube URL + token: from Jenkins (SonarQube server "sonar-qube"). Scanner: Global Tool Configuration → SonarQube Scanner (name must match).
-        stage('SonarQube Analysis') {
+        stage('SonarQube analysis') {
             steps {
-                script {
-                    def scannerHome = tool 'SonarQube Scanner'
-                    withSonarQubeEnv('sonar-qube') {
-                        sh "${scannerHome}/bin/sonar-scanner -Dsonar.projectKey=backend-demo -Dsonar.projectName=backend-demo -Dsonar.sources=src -Dsonar.sourceEncoding=UTF-8"
-                    }
+                withSonarQubeEnv("${env.SONARQUBE_INSTALLATION}") {
+                    sh '''
+                        set -e
+                        if [ -z "${SONAR_HOST_URL:-}" ]; then
+                          echo "ERROR: SONAR_HOST_URL is empty. In Jenkins: Manage Jenkins → Configure System → SonarQube servers, set Server URL to an address this agent can reach (not localhost if SonarQube runs elsewhere or Jenkins is in Docker)."
+                          exit 1
+                        fi
+                        bunx sonarqube-scanner \
+                          -Dsonar.host.url="$SONAR_HOST_URL" \
+                          -Dsonar.token="${SONAR_AUTH_TOKEN:-}"
+                    '''
                 }
             }
         }
