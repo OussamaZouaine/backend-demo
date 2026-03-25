@@ -142,12 +142,15 @@ pipeline {
                         fi
                         cd "$COMPOSE_DIR"
                         export COMPOSE_PROJECT_NAME="backend-smoke-${BUILD_NUMBER}"
-                        # Ephemeral host ports: Jenkins agents often already bind 5432/3010; smoke test only needs Docker network access.
-                        export POSTGRES_HOST_PORT=0
-                        export BACKEND_HOST_PORT=0
+                        # High host ports (not 0): Docker Desktop/WSL can mis-handle 0:port; smoke test only needs container DNS (postgres/backend).
+                        export POSTGRES_HOST_PORT=$((15432 + BUILD_NUMBER % 40000))
+                        export BACKEND_HOST_PORT=$((23010 + BUILD_NUMBER % 40000))
                         echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
                         docker compose pull
-                        docker compose up -d --no-build
+                        if ! docker compose up -d --no-build; then
+                          docker compose logs --tail=200 postgres backend || true
+                          exit 1
+                        fi
                         sleep 8
                         NET="${COMPOSE_PROJECT_NAME}_default"
                         docker run --rm --network "$NET" curlimages/curl:8.5.0 -sf "http://backend:3010/" >/dev/null

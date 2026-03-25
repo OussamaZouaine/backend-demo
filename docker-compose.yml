@@ -1,11 +1,12 @@
 services:
   postgres:
     image: postgres:16-alpine
+    shm_size: 256mb
     environment:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
       POSTGRES_DB: todos
-    # Host port: default 5432 for local tools; use 0 in CI for an ephemeral port (avoids clashes on shared agents).
+    # Host port: default 5432 for local tools; Jenkins sets a high port to avoid 5432/3010 clashes on the agent.
     ports:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
