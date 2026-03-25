@@ -1,7 +1,5 @@
-// Pipelines (recommended split):
-// - This job: build Bun binary, Sonar, Docker image, push to registry. Optionally smoke-test API + Postgres via docker-compose (below).
-// - deploy-infra/Jenkinsfile: deploy full stack (Postgres + backend + frontend) using deploy-infra/docker-compose.yml, which includes this repo's docker-compose.yml. No extra "DB uncomment" needed there—the DB is already in the included compose file.
-// - Do not duplicate production deploy here unless you want every backend build to replace a shared server stack.
+// This job: Bun build, Sonar, Docker image, push to Docker Hub (image consumed by deploy-infra).
+// Full-stack deploy (Postgres + backend + frontend) lives in deploy-infra/Jenkinsfile and deploy-infra/docker-compose.yml.
 
 pipeline {
     agent any
@@ -11,7 +9,6 @@ pipeline {
         PATH = "${env.HOME}/.bun/bin:${env.PATH}"
         IMAGE_NAME = 'backend-demo'
         SONARQUBE_INSTALLATION = 'sonar-qube'
-        DATABASE_URL = 'postgresql://app:app@postgres:5432/todos'
     }
 
     stages {
@@ -112,53 +109,6 @@ pipeline {
                             sh "docker push ${fullLatest}"
                         }
                     }
-                }
-            }
-        }
-
-        // After the image is in the registry, optionally verify Postgres + API together (same stack as local docker compose).
-        // Uses an isolated compose project name to reduce port clashes on shared agents. Hits the backend via a curl sidecar on the compose network (distroless backend image has no shell).
-        stage('Smoke test: Docker Compose (Postgres + API)') {
-            when {
-                anyOf {
-                    branch 'main'
-                    branch 'master'
-                }
-                expression {
-                    return fileExists('docker-compose.yml') || fileExists('backend-demo/docker-compose.yml')
-                }
-            }
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-login', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
-                    sh '''
-                        set -e
-                        if [ -f backend-demo/docker-compose.yml ]; then
-                          COMPOSE_DIR=backend-demo
-                        elif [ -f docker-compose.yml ]; then
-                          COMPOSE_DIR=.
-                        else
-                          echo "No docker-compose.yml found"
-                          exit 1
-                        fi
-                        cd "$COMPOSE_DIR"
-                        export COMPOSE_PROJECT_NAME="backend-smoke-${BUILD_NUMBER}"
-                        # High host ports (not 0): Docker Desktop/WSL can mis-handle 0:port; smoke test only needs container DNS (postgres/backend).
-                        export POSTGRES_HOST_PORT=$((15432 + BUILD_NUMBER % 40000))
-                        export BACKEND_HOST_PORT=$((23010 + BUILD_NUMBER % 40000))
-                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                        # Pull backend from registry; build Postgres locally (init SQL is baked in—bind mounts break with Docker-from-Jenkins).
-                        docker compose pull backend
-                        docker compose build postgres
-                        if ! docker compose up -d --no-build; then
-                          docker compose logs --tail=200 postgres backend || true
-                          exit 1
-                        fi
-                        sleep 8
-                        NET="${COMPOSE_PROJECT_NAME}_default"
-                        docker run --rm --network "$NET" curlimages/curl:8.5.0 -sf "http://backend:3010/" >/dev/null
-                        docker run --rm --network "$NET" curlimages/curl:8.5.0 -sf "http://backend:3010/todos" >/dev/null
-                        docker compose down -v
-                    '''
                 }
             }
         }
