@@ -142,6 +142,9 @@ pipeline {
                         fi
                         cd "$COMPOSE_DIR"
                         export COMPOSE_PROJECT_NAME="backend-smoke-${BUILD_NUMBER}"
+                        # Ephemeral host ports: Jenkins agents often already bind 5432/3010; smoke test only needs Docker network access.
+                        export POSTGRES_HOST_PORT=0
+                        export BACKEND_HOST_PORT=0
                         echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
                         docker compose pull
                         docker compose up -d --no-build

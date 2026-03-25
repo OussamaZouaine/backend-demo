@@ -5,8 +5,9 @@ services:
       POSTGRES_USER: app
       POSTGRES_PASSWORD: app
       POSTGRES_DB: todos
+    # Host port: default 5432 for local tools; use 0 in CI for an ephemeral port (avoids clashes on shared agents).
     ports:
-      - "5432:5432"
+      - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./docker/init-todos.sql:/docker-entrypoint-initdb.d/01-init-todos.sql:ro
@@ -24,7 +25,7 @@ services:
     environment:
       DATABASE_URL: postgresql://app:app@postgres:5432/todos
     ports:
-      - "3010:3010"
+      - "${BACKEND_HOST_PORT:-3010}:3010"
     depends_on:
       postgres:
         condition: service_healthy
