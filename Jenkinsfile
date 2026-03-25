@@ -1,3 +1,8 @@
+// Pipelines (recommended split):
+// - This job: build Bun binary, Sonar, Docker image, push to registry. Optionally smoke-test API + Postgres via docker-compose (below).
+// - deploy-infra/Jenkinsfile: deploy full stack (Postgres + backend + frontend) using deploy-infra/docker-compose.yml, which includes this repo's docker-compose.yml. No extra "DB uncomment" needed there—the DB is already in the included compose file.
+// - Do not duplicate production deploy here unless you want every backend build to replace a shared server stack.
+
 pipeline {
     agent any
 
@@ -6,6 +11,7 @@ pipeline {
         PATH = "${env.HOME}/.bun/bin:${env.PATH}"
         IMAGE_NAME = 'backend-demo'
         SONARQUBE_INSTALLATION = 'sonar-qube'
+        DATABASE_URL = 'postgresql://app:app@postgres:5432/todos'
     }
 
     stages {
@@ -61,7 +67,7 @@ pipeline {
         stage('Build Application') {
             steps {
                 echo '🏗️ building the application...'
-                sh 'bun build --compile --minify-whitespace --minify-syntax --outfile server src/index.ts'
+                sh 'bun build --compile --outfile server src/index.ts'
             }
         }
 
@@ -106,6 +112,45 @@ pipeline {
                             sh "docker push ${fullLatest}"
                         }
                     }
+                }
+            }
+        }
+
+        // After the image is in the registry, optionally verify Postgres + API together (same stack as local docker compose).
+        // Uses an isolated compose project name to reduce port clashes on shared agents. Hits the backend via a curl sidecar on the compose network (distroless backend image has no shell).
+        stage('Smoke test: Docker Compose (Postgres + API)') {
+            when {
+                anyOf {
+                    branch 'main'
+                    branch 'master'
+                }
+                expression {
+                    return fileExists('docker-compose.yml') || fileExists('backend-demo/docker-compose.yml')
+                }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'dockerhub-login', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
+                    sh '''
+                        set -e
+                        if [ -f backend-demo/docker-compose.yml ]; then
+                          COMPOSE_DIR=backend-demo
+                        elif [ -f docker-compose.yml ]; then
+                          COMPOSE_DIR=.
+                        else
+                          echo "No docker-compose.yml found"
+                          exit 1
+                        fi
+                        cd "$COMPOSE_DIR"
+                        export COMPOSE_PROJECT_NAME="backend-smoke-${BUILD_NUMBER}"
+                        echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
+                        docker compose pull
+                        docker compose up -d --no-build
+                        sleep 8
+                        NET="${COMPOSE_PROJECT_NAME}_default"
+                        docker run --rm --network "$NET" curlimages/curl:8.5.0 -sf "http://backend:3010/" >/dev/null
+                        docker run --rm --network "$NET" curlimages/curl:8.5.0 -sf "http://backend:3010/todos" >/dev/null
+                        docker compose down -v
+                    '''
                 }
             }
         }

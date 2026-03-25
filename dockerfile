@@ -12,10 +12,9 @@ COPY ./src ./src
 
 ENV NODE_ENV=production
 
+# Do not minify: --minify-* breaks Elysia route registration in the compiled binary (POST/PATCH become 404).
 RUN bun build \
 	--compile \
-	--minify-whitespace \
-	--minify-syntax \
 	--outfile server \
 	src/index.ts
 

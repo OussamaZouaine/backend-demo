@@ -1,10 +1,9 @@
 import { Elysia, t } from "elysia";
-import { openapi } from "@elysiajs/openapi";
 import { eq } from "drizzle-orm";
 import { db } from "./db";
 import { todos } from "./db/schema";
 
-const app = new Elysia().use(openapi());
+const app = new Elysia();
 
 app.get("/", () => Response.json({ message: "Hello Elysia" }));
 
@@ -81,10 +80,8 @@ app.delete("/todos/:id", async ({ params }) => {
   return new Response(null, { status: 204 });
 });
 
-const port = Number(process.env.PORT) || 3010;
-
 app.listen({
-  port,
+  port: 3010,
   hostname: "0.0.0.0",
 });
 
