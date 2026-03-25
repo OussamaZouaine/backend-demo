@@ -146,7 +146,9 @@ pipeline {
                         export POSTGRES_HOST_PORT=$((15432 + BUILD_NUMBER % 40000))
                         export BACKEND_HOST_PORT=$((23010 + BUILD_NUMBER % 40000))
                         echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-                        docker compose pull
+                        # Pull backend from registry; build Postgres locally (init SQL is baked in—bind mounts break with Docker-from-Jenkins).
+                        docker compose pull backend
+                        docker compose build postgres
                         if ! docker compose up -d --no-build; then
                           docker compose logs --tail=200 postgres backend || true
                           exit 1

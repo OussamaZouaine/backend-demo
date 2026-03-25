@@ -1,6 +1,9 @@
 services:
   postgres:
-    image: postgres:16-alpine
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.postgres
+    image: backend-demo-postgres:latest
     shm_size: 256mb
     environment:
       POSTGRES_USER: app
@@ -11,7 +14,6 @@ services:
       - "${POSTGRES_HOST_PORT:-5432}:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./docker/init-todos.sql:/docker-entrypoint-initdb.d/01-init-todos.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U app -d todos"]
       interval: 5s

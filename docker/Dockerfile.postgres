@@ -1,0 +1,3 @@
+# Init SQL is copied into the image so bind mounts are not required (Jenkins + Docker socket cannot resolve host paths to repo files reliably).
+FROM postgres:16-alpine
+COPY docker/init-todos.sql /docker-entrypoint-initdb.d/01-init-todos.sql
